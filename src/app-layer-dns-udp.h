@@ -31,7 +31,14 @@
 #include "util-byte.h"
 
 void RegisterDNSUDPParsers(void);
-void DNSUDPParserTests(void);
+
+#ifdef UNITTESTS
 void DNSUDPParserRegisterTests(void);
+int DNSUDPRequestParse(Flow *f, void *dstate,
+                              AppLayerParserState *pstate,
+                              uint8_t *input, uint32_t input_len,
+                              void *local_data);
+#endif
+
 
 #endif /* __APP_LAYER_DNS_UDP_H__ */

@@ -50,6 +50,7 @@
 
 #include "output-json.h"
 
+
 #ifdef HAVE_LIBJANSSON
 
 /* we can do query logging as well, but it's disabled for now as the
@@ -573,15 +574,18 @@ static json_t *FailureJson(DNSTransaction *tx, DNSQueryEntry *entry)
 void FillsDNSTransactionJSON(json_t * js,  DNSTransaction *tx, uint64_t flags)
 {
 
-    if (unlikely(js == NULL))
+    if (unlikely(js == NULL)) {
         return;
+    }
 
-    if (unlikely(tx == NULL))
+    if (unlikely(tx == NULL)) {
         return;
+    }
 
     if (tx->reply_lost) {
        json_object_set_new(js, "info", json_string("reply lost"));
     }
+
 
     if (tx->rcode) {
         if (likely(flags & LOG_QUERIES) != 0) {
@@ -591,17 +595,20 @@ void FillsDNSTransactionJSON(json_t * js,  DNSTransaction *tx, uint64_t flags)
             DNSQueryEntry *query = NULL;
             TAILQ_FOREACH(query, &tx->query_list, next) {
 
-               if (! likely(DNSRRTypeEnabled(query->type, flags)))
-	           continue;
+               if (! likely(DNSRRTypeEnabled(query->type, flags))) {
+                   continue;
+               }
 
                json_t *entryjs = FailureJson(tx, query);
-               if (entryjs)
+               if (entryjs) {
                    json_array_append(arrjs, entryjs);
+               }
             }
 
             if (json_array_size(arrjs) > 0)
                 json_object_set_new(js, "fail", arrjs);
         }
+
     }
 
    /* if answer */
@@ -685,10 +692,12 @@ static void OutputLogTransactionJSON(LogFileCtx *file_ctx, MemBuffer *buffer, js
         /* reset */
         MemBufferReset(buffer);
         OutputJSONBuffer(js, file_ctx, &buffer);
+
         json_decref(tjs);
 
         return;
     }
+
 
 
    /* Not unified style */
@@ -1073,3 +1082,148 @@ void JsonDnsLogRegister (void)
 }
 
 #endif
+
+/************************************Unittests*******************************/
+
+#ifdef UNITTESTS
+#include "threads.h"
+
+#include "flow-util.h"
+#include "detect-engine.h"
+#include "detect-parse.h"
+
+#include "util-unittest.h"
+#include "util-unittest-helper.h"
+
+#define JSON_DNS_OUTPUT_UNITTEST_DUMP_ENABLE 0
+
+#define JSON_DNS_OUTPUT_UNITTEST_DUMP(js)           \
+{                                                   \
+  if (JSON_DNS_OUTPUT_UNITTEST_DUMP_ENABLE) {       \
+    printf("\n");                                   \
+    json_dumpf(js, stdout, JSON_INDENT(2));         \
+    printf("\n");                                   \
+  }                                                 \
+}
+
+
+#define FAIL_IF_STR_DIFFERS(left, right)             \
+{                                                    \
+    const char * l = left;                           \
+    const char * r = right;                          \
+    FAIL_IF(l == NULL);                              \
+    FAIL_IF(r == NULL);                              \
+    int i = strncasecmp(l, r, strlen(l));            \
+    FAIL_IF(i != 0 );                                \
+}
+
+/* google.com */
+static uint8_t bufQuery[] = {
+   0x10, 0x32, 0x01, 0x00, 0x00, 0x01,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x06, 0x67, 0x6F, 0x6F, 0x67, 0x6C,
+   0x65, 0x03, 0x63, 0x6F, 0x6D, 0x00,
+   0x00, 0x10, 0x00, 0x01,
+};
+
+static DNSState *MakesDNSStateFromRequest(Flow *f, uint8_t *input, uint32_t input_len) {
+
+    /* Create a DNS state */
+    DNSState *dns_state = DNSStateAlloc();
+    FAIL_IF(dns_state == NULL);
+
+    /* Create App Layer Parser State */
+    AppLayerParserState *pstate = AppLayerParserStateAlloc();
+    FAIL_IF(pstate== NULL);
+
+    /* Parses the DNS UDP Request */
+    FAIL_IF ( DNSUDPRequestParse(f, dns_state, pstate, input, input_len, NULL) == -1 );
+
+    AppLayerParserStateFree(pstate);
+
+    return dns_state;
+}
+
+/**
+ *  \test Tests the JSON Output for a DNS Query with DNS_DISCRETE style
+ *
+ *  \retval On success it returns 1 and on failure 0.
+ */
+
+static int OutputJsonDnsQueryDiscreteTest01 (void)
+{
+
+    /* Create the file context */
+    LogFileCtx *file_ctx = LogFileNewCtx();
+    FAIL_IF(file_ctx == NULL);
+
+    /* Create memory butffer */
+    MemBuffer * buffer = MemBufferCreateNew(OUTPUT_BUFFER_SIZE);
+    FAIL_IF(buffer == NULL);
+
+    /* Create DNS file context */
+    LogDnsFileCtx *dnslog_ctx = SCMalloc(sizeof(LogDnsFileCtx));
+    FAIL_IF(dnslog_ctx == NULL);
+
+    /* Configure DNS file context configuration options */
+    dnslog_ctx->mode = DNS_DISCRETE;
+    dnslog_ctx->filter &= LOG_ALL_RRTYPES;
+
+    /* Create a DNS Package for tests */
+    Packet *p = UTHBuildPacketReal(bufQuery, sizeof(bufQuery), IPPROTO_UDP,
+                           "192.168.1.5", "192.168.1.1", 53, 41424);
+    FAIL_IF(p == NULL);
+
+    /* Create flow */
+    Flow f;
+    FLOW_INITIALIZE(&f);
+    f.flags |= FLOW_IPV4;
+    f.proto = IPPROTO_UDP;
+    f.protomap = FlowGetProtoMapping(f.proto);
+
+    p->flow = &f;
+    p->flags |= PKT_HAS_FLOW;
+    p->flowflags |= FLOW_PKT_TOSERVER;
+    f.alproto = ALPROTO_DNS;
+
+    /* Create a DNS state from the flow and query */
+    DNSState *dns_state = MakesDNSStateFromRequest(&f, bufQuery, sizeof(bufQuery));
+
+    /* Create a JSON object for output */
+    json_t *js = CreateJSONHeader(p, 0, "dns");
+    FAIL_IF(js == NULL);
+
+    /* Outputs JSON */
+    OutputLogTransactionJSON(file_ctx, buffer, js, TAILQ_FIRST(&dns_state->tx_list), ALL_FILTERS, DNS_DISCRETE);
+
+    JSON_DNS_OUTPUT_UNITTEST_DUMP(js);
+
+    /* Check output format */
+    json_t *dns = json_object_get(js, "dns");
+    FAIL_IF (dns == NULL);
+
+    /* Check string values */
+    FAIL_IF_STR_DIFFERS("query",      json_string_value( json_object_get(dns, "type") ));
+    FAIL_IF_STR_DIFFERS("google.com", json_string_value( json_object_get(dns, "rrname") ));
+    FAIL_IF_STR_DIFFERS("TXT",        json_string_value( json_object_get(dns, "rrtype")));
+
+    /* Free some stuff */
+    json_decref(js);
+    DNSStateFree(dns_state);
+    FLOW_DESTROY(&f);
+    UTHFreePacket(p);
+    SCFree(dnslog_ctx);
+    MemBufferFree(buffer);
+    LogFileFreeCtx(file_ctx);
+
+    PASS;
+}
+
+/**
+ *  \brief   Function to register DNS output JSON Tests
+ */
+void OutputJsonDnsRegisterTests (void)
+{
+    UtRegisterTest("OutputJsonDnsQueryDiscreteTest01 -- Tests output of query", OutputJsonDnsQueryDiscreteTest01);
+}
+#endif /* UNITTESTS */

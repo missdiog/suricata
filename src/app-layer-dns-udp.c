@@ -53,7 +53,7 @@
 /** \internal
  *  \brief Parse DNS request packet
  */
-static int DNSUDPRequestParse(Flow *f, void *dstate,
+int DNSUDPRequestParse(Flow *f, void *dstate,
                               AppLayerParserState *pstate,
                               uint8_t *input, uint32_t input_len,
                               void *local_data)
