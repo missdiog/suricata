@@ -2030,7 +2030,11 @@ SURICATA_BUILD_CONF="Suricata Configuration:
   libnspr support:                         ${enable_nspr}
   libjansson support:                      ${enable_jansson}
   hiredis support:                         ${enable_hiredis}
+<<<<<<< HEAD
   rdkafka support:                         ${enable_rdkafka}
+=======
+  libevent support:                        ${enable_libevent}
+>>>>>>> cd7b613... eve: initial work for async mode for redis output
   Prelude support:                         ${enable_prelude}
   PCRE jit:                                ${pcre_jit_available}
   LUA support:                             ${enable_lua}
