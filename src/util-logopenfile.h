@@ -28,6 +28,10 @@
 #include "tm-modules.h"      /* LogFileCtx */
 #include "util-buffer.h"
 
+#ifdef HAVE_LIBHIREDIS
+#include "util-logopenfile-redis.h"
+#endif /* HAVE_LIBHIREDIS */
+
 
 #ifdef HAVE_LIBRDKAFKA
 #include "util-logopenfile-kafka.h"
@@ -48,21 +52,6 @@ typedef struct SyslogSetup_ {
     int alert_syslog_level;
 } SyslogSetup;
 
-#ifdef HAVE_LIBHIREDIS
-enum RedisMode { REDIS_LIST, REDIS_CHANNEL };
-
-typedef struct RedisSetup_ {
-    enum RedisMode mode;
-    const char *command;
-    char *key;
-    int  batch_size;
-    int  batch_count;
-    char *server;
-    int  port;
-    time_t tried;
-    int async;
-} RedisSetup;
-#endif
 
 #ifdef HAVE_LIBRDKAFKA
 typedef struct KafkaSetup_ {
