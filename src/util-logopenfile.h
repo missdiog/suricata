@@ -33,8 +33,8 @@
 #endif
 
 #ifdef HAVE_LIBRDKAFKA
-#include "librdkafka/rdkafka.h"
-#endif
+#include "util-logopenfile-kafka.h"
+#endif /* HAVE_LIBRDKAFKA */
 
 typedef struct {
     uint16_t fileno;

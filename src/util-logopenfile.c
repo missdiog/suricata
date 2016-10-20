@@ -41,6 +41,10 @@
 const char * redis_push_cmd = "LPUSH";
 const char * redis_publish_cmd = "PUBLISH";
 
+#ifdef HAVE_RDKAFKA
+#include "util-logopenfile-kafka.h"
+#endif
+
 /** \brief connect to the indicated local stream socket, logging any errors
  *  \param path filesystem path to connect to
  *  \param log_err, non-zero if connect failure should be logged.
