@@ -53,17 +53,6 @@ typedef struct SyslogSetup_ {
 } SyslogSetup;
 
 
-#ifdef HAVE_LIBRDKAFKA
-typedef struct KafkaSetup_ {
-    rd_kafka_topic_t *topic;
-    rd_kafka_conf_t *conf;
-    char *brokers;
-    int partition;
-    intmax_t loglevel;
-    time_t tried;
-} KafkaSetup;
-#endif
-
 /** Global structure for Output Context */
 typedef struct LogFileCtx_ {
     union {
@@ -143,12 +132,6 @@ int LogFileFreeCtx(LogFileCtx *);
 int LogFileWrite(LogFileCtx *file_ctx, MemBuffer *buffer);
 
 int SCConfLogOpenGeneric(ConfNode *conf, LogFileCtx *, const char *, int);
-#ifdef HAVE_LIBHIREDIS
-int SCConfLogOpenRedis(ConfNode *conf, LogFileCtx *log_ctx);
-#endif
-#ifdef HAVE_LIBRDKAFKA
-int SCConfLogOpenKafka(ConfNode *conf, LogFileCtx *log_ctx);
-#endif
 int SCConfLogReopen(LogFileCtx *);
 
 #endif /* __UTIL_LOGOPENFILE_H__ */
