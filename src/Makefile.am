@@ -37,6 +37,7 @@ app-layer-protos.c app-layer-protos.h \
 app-layer-smb2.c app-layer-smb2.h \
 app-layer-smb.c app-layer-smb.h \
 app-layer-smtp.c app-layer-smtp.h \
+app-layer-irc.c app-layer-irc.h \
 app-layer-template.c app-layer-template.h \
 app-layer-ssh.c app-layer-ssh.h \
 app-layer-ssl.c app-layer-ssl.h \
@@ -254,6 +255,7 @@ log-droplog.c log-droplog.h \
 log-file.c log-file.h \
 log-filestore.c log-filestore.h \
 log-httplog.c log-httplog.h \
+log-irclog.c log-irclog.h \
 log-pcap.c log-pcap.h \
 log-stats.c log-stats.h \
 log-tcp-data.c log-tcp-data.h \

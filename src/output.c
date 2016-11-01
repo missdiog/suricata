@@ -70,6 +70,7 @@
 #include "output-json-template.h"
 #include "output-lua.h"
 #include "output-json-dnp3.h"
+#include "log-irclog.h"
 
 typedef struct RootLogger_ {
     ThreadInitFunc ThreadInit;
@@ -1061,6 +1062,8 @@ void OutputRegisterLoggers(void)
     /* http log */
     LogHttpLogRegister();
     JsonHttpLogRegister();
+	/* irc log */
+    LogIrcLogRegister();
     /* tls log */
     LogTlsLogRegister();
     JsonTlsLogRegister();
