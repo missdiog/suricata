@@ -102,7 +102,7 @@ static inline void AlertFastLogOutputAlert(AlertFastLogThread *aft, char *buffer
     /* Output the alert string and count alerts. Only need to lock here. */
     SCMutexLock(file_lock);
     aft->file_ctx->alerts++;
-    aft->file_ctx->Write(buffer, alert_size, aft->file_ctx);
+    aft->file_ctx->Write(buffer, alert_size, &aft->file_ctx);
     SCMutexUnlock(file_lock);
 }
 

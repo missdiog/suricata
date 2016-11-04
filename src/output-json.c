@@ -56,6 +56,7 @@
 #include "util-optimize.h"
 #include "util-buffer.h"
 #include "util-logopenfile.h"
+#include "util-logopenfile-kafka.h"
 #include "util-device.h"
 
 
@@ -299,8 +300,9 @@ int OutputJSONMemBufferCallback(const char *str, size_t size, void *data)
     return 0;
 }
 
-int OutputJSONBuffer(json_t *js, LogFileCtx *file_ctx, MemBuffer **buffer)
+int OutputJSONBuffer(json_t *js, LogFileCtx **lf_ctx, MemBuffer **buffer)
 {
+    LogFileCtx *file_ctx = *lf_ctx;
     if (file_ctx->sensor_name) {
         json_object_set_new(js, "host",
                             json_string(file_ctx->sensor_name));
@@ -321,7 +323,7 @@ int OutputJSONBuffer(json_t *js, LogFileCtx *file_ctx, MemBuffer **buffer)
     if (r != 0)
         return TM_ECODE_OK;
 
-    LogFileWrite(file_ctx, *buffer);
+    LogFileWrite(lf_ctx, *buffer);
     return 0;
 }
 
@@ -512,25 +514,21 @@ OutputCtx *OutputJsonInitCtx(ConfNode *conf)
 #endif
 #ifdef HAVE_LIBRDKAFKA
         else if (json_ctx->json_out == LOGFILE_TYPE_KAFKA) {
-            ConfNode *kafka_node = ConfNodeLookupChild(conf, "kafka");
-            if (!json_ctx->file_ctx->sensor_name) {
-                char hostname[1024];
-                gethostname(hostname, 1023);
-                json_ctx->file_ctx->sensor_name = SCStrdup(hostname);
-            }
-            if (json_ctx->file_ctx->sensor_name  == NULL) {
-                LogFileFreeCtx(json_ctx->file_ctx);
-                SCFree(json_ctx);
-                SCFree(output_ctx);
-                return NULL;
-            }
 
-            if (SCConfLogOpenKafka(kafka_node, json_ctx->file_ctx) < 0) {
+            ConfNode *kafka_node = ConfNodeLookupChild(conf, "kafka");
+
+            SCConfLogOpenKafka(kafka_node,
+                    &json_ctx->file_ctx->kafka_setup, json_ctx->file_ctx->sensor_name);
+            rd_kafka_t * kafka = SCLogOpenKafka(&json_ctx->file_ctx->kafka_setup);
+
+            if (kafka == NULL) {
                 LogFileFreeCtx(json_ctx->file_ctx);
                 SCFree(json_ctx);
                 SCFree(output_ctx);
                 return NULL;
             }
+            json_ctx->file_ctx->kafka = kafka;
+            json_ctx->file_ctx->Close = (void(*)(LogFileCtx *)) SCLogFileCloseKafka;
         }
 #endif
 

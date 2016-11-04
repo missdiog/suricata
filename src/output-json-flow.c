@@ -349,7 +349,7 @@ static int JsonFlowLogger(ThreadVars *tv, void *thread_data, Flow *f)
 
     JsonFlowLogJSON(jhl, js, f);
 
-    OutputJSONBuffer(js, jhl->flowlog_ctx->file_ctx, &jhl->buffer);
+    OutputJSONBuffer(js, &jhl->flowlog_ctx->file_ctx, &jhl->buffer);
     json_object_del(js, "http");
 
     json_object_clear(js);

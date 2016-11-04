@@ -38,7 +38,7 @@
 const char * redis_push_cmd = "LPUSH";
 const char * redis_publish_cmd = "PUBLISH";
 
-#ifdef HAVE_RDKAFKA
+#ifdef HAVE_LIBRDKAFKA
 #include "util-logopenfile-kafka.h"
 #endif
 
@@ -88,8 +88,10 @@ err:
  * \brief Attempt to reconnect a disconnected (or never-connected) Unix domain socket.
  * \retval 1 if it is now connected; otherwise 0
  */
-static int SCLogUnixSocketReconnect(LogFileCtx *log_ctx)
+static int SCLogUnixSocketReconnect(LogFileCtx **lf_ctx)
 {
+    LogFileCtx * log_ctx = *lf_ctx;
+
     int disconnected = 0;
     if (log_ctx->fp) {
         SCLogWarning(SC_ERR_SOCKET,
@@ -130,8 +132,10 @@ static int SCLogUnixSocketReconnect(LogFileCtx *log_ctx)
  * \retval 0 on failure; otherwise, the return value of fwrite (number of
  * characters successfully written).
  */
-static int SCLogFileWrite(const char *buffer, int buffer_len, LogFileCtx *log_ctx)
+static int SCLogFileWrite(const char *buffer, int buffer_len, LogFileCtx **lf_ctx)
 {
+    LogFileCtx *log_ctx = *lf_ctx;
+
     /* Check for rotation. */
     if (log_ctx->rotation_flag) {
         log_ctx->rotation_flag = 0;
@@ -140,21 +144,31 @@ static int SCLogFileWrite(const char *buffer, int buffer_len, LogFileCtx *log_ct
 
     int ret = 0;
 
-    if (log_ctx->fp == NULL && log_ctx->is_sock)
-        SCLogUnixSocketReconnect(log_ctx);
+    if ( (log_ctx->type == LOGFILE_TYPE_UNIX_DGRAM ||
+          log_ctx->type == LOGFILE_TYPE_UNIX_STREAM) &&
+          log_ctx->fp == NULL && log_ctx->is_sock) {
 
-    if (log_ctx->fp) {
-        clearerr(log_ctx->fp);
-        ret = fwrite(buffer, buffer_len, 1, log_ctx->fp);
-        fflush(log_ctx->fp);
-
-        if (ferror(log_ctx->fp) && log_ctx->is_sock) {
-            /* Error on Unix socket, maybe needs reconnect */
-            if (SCLogUnixSocketReconnect(log_ctx)) {
-                ret = fwrite(buffer, buffer_len, 1, log_ctx->fp);
-                fflush(log_ctx->fp);
+        SCLogUnixSocketReconnect(lf_ctx);
+        if (log_ctx->fp) {
+            clearerr(log_ctx->fp);
+            ret = fwrite(buffer, buffer_len, 1, log_ctx->fp);
+            fflush(log_ctx->fp);
+            if (ferror(log_ctx->fp) && log_ctx->is_sock) {
+                /* Error on Unix socket, maybe needs reconnect */
+                if (SCLogUnixSocketReconnect(lf_ctx)) {
+                    ret = fwrite(buffer, buffer_len, 1, log_ctx->fp);
+                    fflush(log_ctx->fp);
+                }
             }
         }
+    }
+
+    if (log_ctx->type == LOGFILE_TYPE_KAFKA) {
+        if (log_ctx->kafka) {
+            if ( LogFileWriteKafka(lf_ctx, buffer, buffer_len) > -1 )
+                ret = buffer_len;
+        }
+        return ret;
     }
 
     return ret;
@@ -195,11 +209,11 @@ SCLogOpenFileFp(const char *path, const char *append_setting)
  *  \retval FILE* on success
  *  \retval NULL on error
  */
-static PcieFile *SCLogOpenPcieFp(LogFileCtx *log_ctx, const char *path, 
+static PcieFile *SCLogOpenPcieFp(LogFileCtx *log_ctx, const char *path,
                                  const char *append_setting)
 {
 #ifndef __tile__
-    SCLogError(SC_ERR_INVALID_YAML_CONF_ENTRY, 
+    SCLogError(SC_ERR_INVALID_YAML_CONF_ENTRY,
                "PCIe logging only supported on Tile-Gx Architecture.");
     return NULL;
 #else
@@ -264,11 +278,13 @@ SCConfLogOpenGeneric(ConfNode *conf,
     // Now, what have we been asked to open?
     if (strcasecmp(filetype, "unix_stream") == 0) {
         /* Don't bail. May be able to connect later. */
+        log_ctx->type = LOGFILE_TYPE_UNIX_STREAM;
         log_ctx->is_sock = 1;
         log_ctx->sock_type = SOCK_STREAM;
         log_ctx->fp = SCLogOpenUnixSocketFp(log_path, SOCK_STREAM, 1);
     } else if (strcasecmp(filetype, "unix_dgram") == 0) {
         /* Don't bail. May be able to connect later. */
+        log_ctx->type = LOGFILE_TYPE_UNIX_DGRAM;
         log_ctx->is_sock = 1;
         log_ctx->sock_type = SOCK_DGRAM;
         log_ctx->fp = SCLogOpenUnixSocketFp(log_path, SOCK_DGRAM, 1);
@@ -285,6 +301,24 @@ SCConfLogOpenGeneric(ConfNode *conf,
         log_ctx->pcie_fp = SCLogOpenPcieFp(log_ctx, log_path, append);
         if (log_ctx->pcie_fp == NULL)
             return -1; // Error already logged by Open...Fp routine
+    } else if (strcasecmp(filetype, "kafka") == 0) {
+#ifdef HAVE_LIBRDKAFKA
+        SCMutexLock(&log_ctx->fp_mutex);
+
+        log_ctx->fp = NULL;
+        log_ctx->is_sock = 0;
+        ConfNode *kafka_node = ConfNodeLookupChild(conf, "kafka");
+        SCConfLogOpenKafka(kafka_node, &log_ctx->kafka_setup, log_ctx->sensor_name);
+        log_ctx->type = LOGFILE_TYPE_KAFKA;
+        log_ctx->kafka = SCLogOpenKafka(&log_ctx->kafka_setup);
+        log_ctx->Close = SCLogFileCloseKafka;
+
+        SCMutexUnlock(&log_ctx->fp_mutex);
+#else
+        SCLogError(SC_ERR_INVALID_ARGUMENT,
+                "kafka output option is not compiled");
+#endif// HAVE_LIBRDKAFKA
+
     } else {
         SCLogError(SC_ERR_INVALID_YAML_CONF_ENTRY, "Invalid entry for "
                    "%s.filetype.  Expected \"regular\" (default), \"unix_stream\", "
@@ -635,8 +669,10 @@ static int  LogFileWriteRedis(LogFileCtx *file_ctx, const char *string, size_t s
 }
 #endif
 
-int LogFileWrite(LogFileCtx *file_ctx, MemBuffer *buffer)
+int LogFileWrite(LogFileCtx **lf_ctx, MemBuffer *buffer)
 {
+
+    LogFileCtx *file_ctx = *lf_ctx;
 
     if (file_ctx->type == LOGFILE_TYPE_SYSLOG) {
         syslog(file_ctx->syslog_setup.alert_syslog_level, "%s",
@@ -649,7 +685,7 @@ int LogFileWrite(LogFileCtx *file_ctx, MemBuffer *buffer)
         MemBufferWriteString(buffer, "\n");
         SCMutexLock(&file_ctx->fp_mutex);
         file_ctx->Write((const char *)MEMBUFFER_BUFFER(buffer),
-                        MEMBUFFER_OFFSET(buffer), file_ctx);
+                        MEMBUFFER_OFFSET(buffer), &file_ctx);
         SCMutexUnlock(&file_ctx->fp_mutex);
     }
 #ifdef HAVE_LIBHIREDIS
@@ -664,7 +700,7 @@ int LogFileWrite(LogFileCtx *file_ctx, MemBuffer *buffer)
 #ifdef HAVE_LIBRDKAFKA
     else if (file_ctx->type == LOGFILE_TYPE_KAFKA) {
         SCMutexLock(&file_ctx->fp_mutex);
-        LogFileWriteKafka(file_ctx, (const char *)MEMBUFFER_BUFFER(buffer),
+        LogFileWriteKafka(lf_ctx, (const char *)MEMBUFFER_BUFFER(buffer),
                 MEMBUFFER_OFFSET(buffer));
         SCMutexUnlock(&file_ctx->fp_mutex);
     }

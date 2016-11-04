@@ -430,7 +430,7 @@ static void LogQuery(LogDnsLogThread *aft, json_t *js, DNSTransaction *tx,
 
     /* dns */
     json_object_set_new(js, "dns", djs);
-    OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
+    OutputJSONBuffer(js, &aft->dnslog_ctx->file_ctx, &aft->buffer);
     json_object_del(js, "dns");
 }
 
@@ -539,7 +539,7 @@ static void OutputAnswer(LogDnsLogThread *aft, json_t *djs,
     /* reset */
     MemBufferReset(aft->buffer);
     json_object_set_new(djs, "dns", js);
-    OutputJSONBuffer(djs, aft->dnslog_ctx->file_ctx, &aft->buffer);
+    OutputJSONBuffer(djs, &aft->dnslog_ctx->file_ctx, &aft->buffer);
     json_object_del(djs, "dns");
 
     return;
@@ -581,7 +581,7 @@ static void OutputFailure(LogDnsLogThread *aft, json_t *djs,
     /* reset */
     MemBufferReset(aft->buffer);
     json_object_set_new(djs, "dns", js);
-    OutputJSONBuffer(djs, aft->dnslog_ctx->file_ctx, &aft->buffer);
+    OutputJSONBuffer(djs, &aft->dnslog_ctx->file_ctx, &aft->buffer);
     json_object_del(djs, "dns");
 
     return;

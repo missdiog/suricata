@@ -174,7 +174,7 @@ static void FileWriteJsonRecord(JsonFileLogThread *aft, const Packet *p, const F
 
     /* originally just 'file', but due to bug 1127 naming it fileinfo */
     json_object_set_new(js, "fileinfo", fjs);
-    OutputJSONBuffer(js, aft->filelog_ctx->file_ctx, &aft->buffer);
+    OutputJSONBuffer(js, &aft->filelog_ctx->file_ctx, &aft->buffer);
     json_object_del(js, "fileinfo");
 
     switch (p->flow->alproto) {

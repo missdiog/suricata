@@ -98,7 +98,7 @@ static void LogQuery(LogDnsLogThread *aft, char *timebuf, char *srcip, char *dst
 
     SCMutexLock(&hlog->file_ctx->fp_mutex);
     hlog->file_ctx->Write((const char *)MEMBUFFER_BUFFER(aft->buffer),
-        MEMBUFFER_OFFSET(aft->buffer), hlog->file_ctx);
+        MEMBUFFER_OFFSET(aft->buffer), &hlog->file_ctx);
     SCMutexUnlock(&hlog->file_ctx->fp_mutex);
 }
 
@@ -161,7 +161,7 @@ static void LogAnswer(LogDnsLogThread *aft, char *timebuf, char *srcip, char *ds
 
     SCMutexLock(&hlog->file_ctx->fp_mutex);
     hlog->file_ctx->Write((const char *)MEMBUFFER_BUFFER(aft->buffer),
-        MEMBUFFER_OFFSET(aft->buffer), hlog->file_ctx);
+        MEMBUFFER_OFFSET(aft->buffer), &hlog->file_ctx);
     SCMutexUnlock(&hlog->file_ctx->fp_mutex);
 }
 
