@@ -716,6 +716,11 @@ int IRCGetAlstateProgress(void *tx, uint8_t direction)
 {
     IRCTransaction *irc_tx = (IRCTransaction *)tx;
 
+    if ( irc_tx->request && !irc_tx->response &&
+            SCMemcmp(irc_tx->request_cmd, IRC_CMD_NICK, 4) == 0) {
+        return IRC_TX_STATE_READY;
+    }
+
     if ( irc_tx->request && irc_tx->response) {
         return IRC_TX_STATE_READY;
     }

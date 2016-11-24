@@ -154,12 +154,13 @@ int LogIrcLogger(ThreadVars *tv, void *data, const Packet *p, Flow *f, void *sta
             "\n",
             timebuf,
             srcip, sp, dstip, dp,
-            ircstate->srv.hostname,
-            irctx->request_cmd,
-            irctx->request_cmd_line,
-            irctx->response_cmd_line,
+            ircstate->srv.hostname ?  ircstate->srv.hostname : "-",
+            irctx->request_cmd ? irctx->request_cmd : "-",
+            irctx->request_cmd_line ? irctx->request_cmd_line : "-",
+            irctx->response_cmd_line ? irctx->response_cmd_line : "-",
 #ifdef DEBUG
-            irctx->request, irctx->response,
+            irctx->request ? irctx->request : "-", 
+            irctx->response ? irctx->response : "-",
 #endif
             irctx->bad_cmd
                 );
@@ -180,7 +181,7 @@ end:
  * \param t - ThreadVars - Not used.
  * \param inidata - Output context. Cast to OutputCtx *.
  * \param data - Return param with allocated LogIRCLogThread data .
- * \retval TM_ECODE_FAILED  (1) - if allocation or initialization failed.
+ * \retval TM_ECODE_FAILED (1) - if allocation or initialization failed.
  * \retval TM_ECODE_OK (0) - If successful.
  */
 TmEcode LogIrcLogThreadInit(ThreadVars *t, void *initdata, void **data)

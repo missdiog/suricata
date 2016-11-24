@@ -180,7 +180,7 @@ error:
     }
 }
 
-static void AlertJsonIrc(const Flow *f, uint64_t tx_id, json_t *js)
+static void AlertJsonIrc(const Flow *f, json_t *js)
 {
     IRCState *irc_state = (IRCState *)FlowGetAppState(f);
     json_t *ircjs = NULL;
@@ -198,28 +198,28 @@ static void AlertJsonIrc(const Flow *f, uint64_t tx_id, json_t *js)
         json_object_set_new(ircjs, "nick", json_string((const char *)irc_state->cli.nick));
     if (irc_state->cli.user != NULL)
         json_object_set_new(ircjs, "user", json_string((const char *)irc_state->cli.user));
+
     json_object_set_new(ircjs, "auth", json_boolean(irc_state->cli.authenticated));
     json_object_set_new(ircjs, "quit", json_boolean(irc_state->cli.quitted));
     json_object_set_new(ircjs, "bad_cmds", json_integer(irc_state->cli.num_bad_cmds));
 
-//TODO: FIXME
-//    IRCTransaction *tx = IRCGetTx(irc_state, tx_id);
-//    if (tx == NULL)  {
-//        return;
-//    }
-//    if (tx) {
-//        json_object_set_new(ircjs, "tx", json_integer(tx->tx_num));
-//        if (tx->request_cmd) {
-//            json_object_set_new(ircjs, "cmd",
-//                    json_string((const char *) tx->request_cmd));
-//        }
-//        if (tx->response_cmd_line) {
-//            json_object_set_new(ircjs, "response",
-//                    json_string((const char *) tx->response_cmd_line));
-//        }
-//        json_object_set_new(ircjs, "logged", json_boolean(tx->logged));
-//    }
-
+    if(irc_state) {
+        uint64_t tx_id = AppLayerParserGetTransactionLogId(f->alparser);
+        IRCTransaction *tx = AppLayerParserGetTx(IPPROTO_TCP, ALPROTO_IRC, irc_state, tx_id);
+        if (tx) {
+            json_object_set_new(ircjs, "tx", json_integer(tx->tx_num));
+            if (tx->request_cmd) {
+                json_object_set_new(ircjs, "cmd",
+                        json_string((const char *) tx->request_cmd));
+            }
+            if (tx->response_cmd_line) {
+                json_object_set_new(ircjs, "response",
+                        json_string((const char *) tx->response_cmd_line));
+            }
+            json_object_set_new(ircjs, "logged", json_boolean(tx->logged));
+            json_object_set_new(ircjs, "bad_cmd", json_boolean(tx->bad_cmd));
+        }
+    }
     json_object_set_new(js, "irc", ircjs);
 
     return;
@@ -367,7 +367,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
             }
         }
 
-	/* dnp3 alert */
+        /* dnp3 alert */
         if (json_output_ctx->flags & LOG_JSON_DNP3) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -377,14 +377,14 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
             }
         }
 
-	/* irc alert */
+        /* irc alert */
         if (json_output_ctx->flags & LOG_JSON_IRC) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
 
                 /* irc alert */
                 if (proto == ALPROTO_IRC) {
-                    AlertJsonIrc(p->flow, pa->tx_id, js);
+                    AlertJsonIrc(p->flow, js);
                 }
             }
         }
