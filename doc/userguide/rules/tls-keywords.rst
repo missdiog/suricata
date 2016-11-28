@@ -131,6 +131,24 @@ Case sensitive, can't use 'nocase'.
 
 The tls.fingerprint buffer is lower case so you must use lower case letters for this to match.
 
+tls.cipher.suite
+---------------
+
+match TLS/SSL cipher suites by name description or hexadecimal value.
+
+Accepts a list of cipher suites separated by a ':' delimiter.
+
+example:
+
+
+::
+
+  tls.cipher.suite:client:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:0xcca8
+
+::
+
+  tls.cipher.suite:server:0xcca8
+
 tls.store
 ---------
 

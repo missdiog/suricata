@@ -385,7 +385,11 @@ static CipherSuite g_suites[] = {
     {0xCCAC, "TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256"},
     {0xCCAD, "TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256"},
     {0xCCAE, "TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256"},
+<<<<<<< HEAD
     {0xFFFF, "" }
+=======
+    {0xFFFF, NULL }
+>>>>>>> 48c7a79... tls: tls.cipher.suite keyword
 
 };
 
@@ -406,6 +410,7 @@ void DetectTlsCipherSuiteFree(void *data)
 }
 
 /**
+<<<<<<< HEAD
  * \brief gets a cipher suite description
  *
  * \param value - 2 bytes value for cipher suite code
@@ -430,6 +435,8 @@ const char * TlsCipherSuiteDescription(uint16_t value)
 }
 
 /**
+=======
+>>>>>>> 48c7a79... tls: tls.cipher.suite keyword
  * \brief match the specified cipher suite for handshake side on a tls session
  *
  * \param t pointer to thread vars

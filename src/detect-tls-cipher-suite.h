@@ -24,7 +24,10 @@
 #ifndef __DETECT_TLS_CIPHER_SUITE_H__
 #define __DETECT_TLS_CIPHER_SUITE_H__
 
+<<<<<<< HEAD
 const char * TlsCipherSuiteDescription(uint16_t value;);
+=======
+>>>>>>> 48c7a79... tls: tls.cipher.suite keyword
 void DetectTlsCipherSuiteRegister(void);
 
 #endif /* __DETECT_TLS_CIPHER_SUITE__ */
