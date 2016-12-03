@@ -55,6 +55,7 @@
 #include "util-logopenfile.h"
 #include "util-crypt.h"
 #include "util-time.h"
+#include "util-memcmp.h"
 #include "log-cf-common.h"
 
 #define DEFAULT_LOG_FILENAME "tls.log"
@@ -76,7 +77,12 @@
 #define LOG_TLS_CF_SUBJECT 's'
 #define LOG_TLS_CF_ISSUER 'i'
 #define LOG_TLS_CF_EXTENDED 'E'
+<<<<<<< HEAD
 #define LOG_TLS_CF_SERVER_CIPHERSUITE 'C'
+=======
+#define LOG_TLS_CF_SERVER_EXTENSION 'X'
+#define LOG_TLS_CF_CLIENT_EXTENSION 'x'
+>>>>>>> e75225e... tls: ALPN extension
 
 typedef struct LogTlsFileCtx_ {
     LogFileCtx *file_ctx;
@@ -93,8 +99,31 @@ typedef struct LogTlsLogThread_ {
     MemBuffer *buffer;
 } LogTlsLogThread;
 
+<<<<<<< HEAD
 static void LogTlsLogVersion(MemBuffer *buffer, uint16_t version)
 {
+=======
+void LogTlsLogALPN(MemBuffer *buffer, const char *title, SSLStateConnp *connp)
+{
+    if (!TAILQ_EMPTY(&connp->alpn)) {
+        MemBufferWriteString(buffer, "%s=<", title);
+        ALPN *proto = NULL;
+        ALPN *first = TAILQ_FIRST(&connp->alpn);
+        TAILQ_FOREACH(proto, &connp->alpn, next) {
+            if ( proto != first)  {
+                MemBufferWriteString(buffer, ",");
+            }
+            MemBufferWriteString(buffer, "%s", proto->proto_name);
+        }
+        MemBufferWriteString(buffer, ">");
+    } else {
+        LOG_CF_WRITE_UNKNOWN_VALUE(buffer);
+    }
+}
+
+static void LogTlsLogVersion(MemBuffer *buffer, uint16_t version)
+{
+>>>>>>> e75225e... tls: ALPN extension
     switch (version) {
         case TLS_VERSION_UNKNOWN:
             MemBufferWriteString(buffer, "VERSION='UNDETERMINED'");
@@ -426,6 +455,21 @@ static void LogTlsLogCustom(LogTlsLogThread *aft, SSLState *ssl_state, const str
                     MemBufferWriteString(aft->buffer, "%s",
                             TlsCipherSuiteDescription(*ssl_state->server_connp.cipher_suites)
                             );
+            /* Extended format  */
+                LogTlsLogExtended(aft, ssl_state);
+                break;
+            case LOG_TLS_CF_SERVER_EXTENSION:
+                /* Client extension */
+                if (SCMemcmp(node->data, "alpn", 4) == 0) {
+                    LogTlsLogALPN(aft->buffer, "S-ALPN", &ssl_state->server_connp);
+                } else {
+                    LOG_CF_WRITE_UNKNOWN_VALUE(aft->buffer);
+                }
+                break;
+            case LOG_TLS_CF_CLIENT_EXTENSION:
+                /* Server extension */
+                if (SCMemcmp(node->data, "alpn", 4) == 0) {
+                    LogTlsLogALPN(aft->buffer, "C-ALPN", &ssl_state->client_connp);
                 } else {
                     LOG_CF_WRITE_UNKNOWN_VALUE(aft->buffer);
                 }

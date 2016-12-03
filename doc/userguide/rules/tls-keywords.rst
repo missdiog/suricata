@@ -149,6 +149,21 @@ example:
 
   tls.cipher.suite:server:0xcca8
 
+tls.alpn
+---------------
+
+match TLS/SSL ALPN extension values
+
+examples:
+
+::
+
+  tls.alpn:client:h2
+
+::
+
+  tls.alpn:server:http/1.1
+
 tls.store
 ---------
 
