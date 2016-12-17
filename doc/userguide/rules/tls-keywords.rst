@@ -134,20 +134,31 @@ The tls.fingerprint buffer is lower case so you must use lower case letters for 
 tls_cipher_suite
 ---------------
 
-match TLS/SSL cipher suites by name description or hexadecimal value.
+match TLS/SSL cipher suites by name description, hexadecimal value or by built-in list of cipher suites.
 
-Accepts a list of cipher suites separated by a ':' delimiter.
+Accepts a list of cipher suites separated by a ',' delimiter.
 
 example:
 
 
 ::
 
-  tls_cipher_suite:client:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:0xcca8
+  tls_cipher_suite:client:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,0xcca8
 
 ::
 
   tls_cipher_suite:server:0xcca8
+
+::
+
+  tls_cipher_suite:server:http2_blacklist
+
+Builtin lists for cipher suites:
+
+ - http2_blacklist : https://tools.ietf.org/html/rfc7540#page-83
+ - openssl_SSLv3   : ciphers listed by OpenSSL as SSLv3
+ - openssl_TLSv1   : ciphers listed by OpenSSL as TLSv1
+ - openssl_TLSv1.2 : ciphers listed by OpenSSL as TLSv1.2
 
 tls.store
 ---------
